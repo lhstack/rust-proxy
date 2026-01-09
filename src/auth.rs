@@ -5,10 +5,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use chrono::{Utc, Duration};
 
 use crate::AdminState;
 
@@ -84,10 +84,10 @@ impl AuthState {
 }
 
 fn generate_token() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
-    
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
@@ -146,10 +146,12 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Response {
     let path = req.uri().path();
-    
+
     // 白名单路径 - 只允许登录相关和静态资源
-    if matches!(path, "/api/login" | "/api/session" | "/login" | "/favicon.ico")
-        || path.starts_with("/static/")
+    if matches!(
+        path,
+        "/api/login" | "/api/session" | "/login" | "/favicon.ico"
+    ) || path.starts_with("/static/")
     {
         return next.run(req).await;
     }
@@ -179,7 +181,7 @@ fn extract_token<B>(req: &Request<B>) -> Option<String> {
             }
         }
     }
-    
+
     // Cookie
     if let Some(cookie) = req.headers().get("Cookie") {
         if let Ok(s) = cookie.to_str() {
@@ -190,6 +192,6 @@ fn extract_token<B>(req: &Request<B>) -> Option<String> {
             }
         }
     }
-    
+
     None
 }

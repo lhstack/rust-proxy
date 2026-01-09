@@ -27,7 +27,7 @@ impl CompiledProxyRule {
     pub fn from_db_rule(rule: &ProxyRule) -> Result<Self, regex::Error> {
         let (pattern, param_names) = Self::compile_pattern(&rule.source);
         let regex = Regex::new(&pattern)?;
-        
+
         Ok(Self {
             source_pattern: regex,
             target_template: rule.target.clone(),
@@ -56,7 +56,11 @@ impl CompiledProxyRule {
                 pattern.push_str("([^/]+)");
             }
 
-            param_names.push(format!("{{{}{}}}", if is_wildcard { "*" } else { "" }, name));
+            param_names.push(format!(
+                "{{{}{}}}",
+                if is_wildcard { "*" } else { "" },
+                name
+            ));
             last_end = full_match.end();
         }
 
@@ -103,22 +107,29 @@ pub async fn rule_proxy_handler(
     let direct_path = state.direct_proxy_path.load();
     let direct_path_str = direct_path.as_str();
     let direct_prefix = format!("/{}/", direct_path_str);
-    
+
     tracing::debug!("Request path: {}, direct_prefix: {}", path, direct_prefix);
-    
+
     // 检查是否是直接代理请求: /{path}/http://... 或 /{path}/https://...
     if path.starts_with(&direct_prefix) {
         let target_url = &path[direct_prefix.len()..];
         tracing::debug!("Checking direct proxy, target_url: {}", target_url);
-        
+
         if target_url.starts_with("http://") || target_url.starts_with("https://") {
             let final_url = match query {
                 Some(q) => format!("{}?{}", target_url, q),
                 None => target_url.to_string(),
             };
-            
+
             tracing::info!(method = %req.method(), target = %final_url, client_ip = %client_ip, "Direct proxy");
-            return forward_request_streaming(req, &final_url, &state.client, state.default_timeout, &client_ip).await;
+            return forward_request_streaming(
+                req,
+                &final_url,
+                &state.client,
+                state.default_timeout,
+                &client_ip,
+            )
+            .await;
         }
     }
 
@@ -132,7 +143,14 @@ pub async fn rule_proxy_handler(
             }
 
             tracing::info!(method = %req.method(), source = %path, target = %target_url, client_ip = %client_ip, "Rule proxy");
-            return forward_request_streaming(req, &target_url, &state.client, rule.timeout, &client_ip).await;
+            return forward_request_streaming(
+                req,
+                &target_url,
+                &state.client,
+                rule.timeout,
+                &client_ip,
+            )
+            .await;
         }
     }
 
@@ -150,7 +168,7 @@ async fn forward_request_streaming(
 ) -> Result<Response, StatusCode> {
     let method = req.method().clone();
     let headers = req.headers().clone();
-    
+
     // 流式读取请求体
     let body_stream = req.into_body();
     let body_bytes = axum::body::to_bytes(body_stream, 100 * 1024 * 1024) // 100MB 限制
@@ -167,7 +185,7 @@ async fn forward_request_streaming(
         if !is_hop_by_hop_header(name.as_str()) {
             if let (Ok(n), Ok(v)) = (
                 reqwest::header::HeaderName::from_bytes(name.as_ref()),
-                reqwest::header::HeaderValue::from_bytes(value.as_bytes())
+                reqwest::header::HeaderValue::from_bytes(value.as_bytes()),
             ) {
                 forward_req = forward_req.header(n, v);
             }
@@ -182,15 +200,19 @@ async fn forward_request_streaming(
         .map(|existing| format!("{}, {}", existing, client_ip))
         .unwrap_or_else(|| client_ip.to_string());
     forward_req = forward_req.header("X-Forwarded-For", &xff);
-    
+
     // X-Real-IP: 原始客户端 IP（如果还没设置）
     if !headers.contains_key("x-real-ip") {
         forward_req = forward_req.header("X-Real-IP", client_ip);
     }
-    
+
     // X-Forwarded-Proto: 协议
     if !headers.contains_key("x-forwarded-proto") {
-        let proto = if target_url.starts_with("https://") { "https" } else { "http" };
+        let proto = if target_url.starts_with("https://") {
+            "https"
+        } else {
+            "http"
+        };
         forward_req = forward_req.header("X-Forwarded-Proto", proto);
     }
 
@@ -201,19 +223,23 @@ async fn forward_request_streaming(
     // 发送请求
     let response = forward_req.send().await.map_err(|e| {
         tracing::error!("Proxy error: {}", e);
-        if e.is_timeout() { StatusCode::GATEWAY_TIMEOUT } else { StatusCode::BAD_GATEWAY }
+        if e.is_timeout() {
+            StatusCode::GATEWAY_TIMEOUT
+        } else {
+            StatusCode::BAD_GATEWAY
+        }
     })?;
 
     let status = StatusCode::from_u16(response.status().as_u16())
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    
+
     // 复制响应头
     let mut response_headers = HeaderMap::new();
     for (name, value) in response.headers().iter() {
         if !is_hop_by_hop_header(name.as_str()) {
             if let (Ok(n), Ok(v)) = (
                 HeaderName::from_bytes(name.as_ref()),
-                HeaderValue::from_bytes(value.as_bytes())
+                HeaderValue::from_bytes(value.as_bytes()),
             ) {
                 response_headers.insert(n, v);
             }
@@ -221,14 +247,12 @@ async fn forward_request_streaming(
     }
 
     // 流式响应体
-    let body_stream = response.bytes_stream().map(|result| {
-        result.map_err(|e| {
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })
-    });
+    let body_stream = response
+        .bytes_stream()
+        .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
 
     let body = Body::from_stream(body_stream);
-    
+
     let mut resp = Response::new(body);
     *resp.status_mut() = status;
     *resp.headers_mut() = response_headers;
@@ -256,7 +280,14 @@ fn convert_method(method: &Method) -> reqwest::Method {
 fn is_hop_by_hop_header(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "connection" | "keep-alive" | "proxy-authenticate" | "proxy-authorization" 
-        | "te" | "trailers" | "transfer-encoding" | "upgrade" | "host"
+        "connection"
+            | "keep-alive"
+            | "proxy-authenticate"
+            | "proxy-authorization"
+            | "te"
+            | "trailers"
+            | "transfer-encoding"
+            | "upgrade"
+            | "host"
     )
 }

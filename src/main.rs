@@ -17,13 +17,15 @@ use std::sync::atomic::AtomicU16;
 use std::sync::Arc;
 use std::time::Duration;
 use tower_http::{compression::CompressionLayer, trace::TraceLayer};
-use tracing_subscriber::{fmt::time::FormatTime, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{
+    fmt::time::FormatTime, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
+};
 
 use crate::auth::AuthState;
 use crate::config::Config;
 use crate::db::Database;
 use crate::logger::{start_cleanup_task, RollingFileWriter};
-use crate::proxy::{CompiledProxyRule, ProxyState, rule_proxy_handler};
+use crate::proxy::{rule_proxy_handler, CompiledProxyRule, ProxyState};
 
 struct CustomTimer;
 
@@ -48,16 +50,14 @@ impl AdminState {
         let db_rules = self.db.get_enabled_rules()?;
         let compiled: Vec<CompiledProxyRule> = db_rules
             .iter()
-            .filter_map(|rule| {
-                match CompiledProxyRule::from_db_rule(rule) {
-                    Ok(compiled) => {
-                        tracing::info!(name = %rule.name, source = %rule.source, "Loaded rule");
-                        Some(compiled)
-                    }
-                    Err(e) => {
-                        tracing::error!(source = %rule.source, error = %e, "Failed to compile rule");
-                        None
-                    }
+            .filter_map(|rule| match CompiledProxyRule::from_db_rule(rule) {
+                Ok(compiled) => {
+                    tracing::info!(name = %rule.name, source = %rule.source, "Loaded rule");
+                    Some(compiled)
+                }
+                Err(e) => {
+                    tracing::error!(source = %rule.source, error = %e, "Failed to compile rule");
+                    None
                 }
             })
             .collect();
@@ -73,7 +73,8 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load("config.yaml").expect("Failed to load config.yaml");
 
     // 日志初始化
-    let file_writer = RollingFileWriter::new(&config.logging.directory, config.logging.max_size_bytes)?;
+    let file_writer =
+        RollingFileWriter::new(&config.logging.directory, config.logging.max_size_bytes)?;
 
     tracing_subscriber::registry()
         .with(EnvFilter::new("info,hyper=warn,reqwest=warn"))
@@ -96,13 +97,18 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting proxy server...");
 
-    start_cleanup_task(config.logging.directory.clone(), config.logging.retention_days);
+    start_cleanup_task(
+        config.logging.directory.clone(),
+        config.logging.retention_days,
+    );
 
     // 数据库连接池
     let db = Database::new(&config.database.path)?;
     tracing::info!("Database initialized: {}", config.database.path);
 
-    let direct_proxy_path = db.get_config("direct_proxy_path")?.unwrap_or_else(|| "proxy".to_string());
+    let direct_proxy_path = db
+        .get_config("direct_proxy_path")?
+        .unwrap_or_else(|| "proxy".to_string());
 
     // 高性能 HTTP 客户端
     let client = Client::builder()
@@ -170,7 +176,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/configs/:key", put(api::update_config))
         .route("/api/status", get(api::get_proxy_status))
         .route("/static/*path", get(static_files::serve_static))
-        .layer(middleware::from_fn_with_state(admin_state.clone(), auth::auth_middleware))
+        .layer(middleware::from_fn_with_state(
+            admin_state.clone(),
+            auth::auth_middleware,
+        ))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(admin_state);
@@ -186,7 +195,11 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Admin: http://{}", admin_addr);
     tracing::info!("Proxy: http://{}", proxy_addr);
-    tracing::info!("Direct proxy path from DB: '{}', use: /{}/https://...", direct_proxy_path, direct_proxy_path);
+    tracing::info!(
+        "Direct proxy path from DB: '{}', use: /{}/https://...",
+        direct_proxy_path,
+        direct_proxy_path
+    );
 
     let admin_listener = tokio::net::TcpListener::bind(&admin_addr).await?;
     let proxy_listener = tokio::net::TcpListener::bind(&proxy_addr).await?;

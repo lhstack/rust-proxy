@@ -11,20 +11,23 @@ pub struct StaticAssets;
 
 /// 静态资源服务 - 带缓存头
 pub async fn serve_static(uri: Uri) -> impl IntoResponse {
-    let path = uri.path().trim_start_matches('/').trim_start_matches("static/");
+    let path = uri
+        .path()
+        .trim_start_matches('/')
+        .trim_start_matches("static/");
     let path = if path.is_empty() { "index.html" } else { path };
 
     match StaticAssets::get(path) {
         Some(content) => {
             let mime = mime_guess::from_path(path).first_or_octet_stream();
-            
+
             // 静态资源缓存 1 天
             let cache_control = if path.ends_with(".html") {
                 "no-cache"
             } else {
                 "public, max-age=86400"
             };
-            
+
             Response::builder()
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, mime.as_ref())

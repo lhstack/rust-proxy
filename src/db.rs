@@ -38,7 +38,7 @@ impl Database {
             .max_size(10)
             .min_idle(Some(2))
             .build(manager)?;
-        
+
         let db = Self { pool };
         db.init_tables()?;
         Ok(db)
@@ -50,15 +50,17 @@ impl Database {
 
     fn init_tables(&self) -> Result<()> {
         let conn = self.conn()?;
-        
+
         // 启用 WAL 模式提升并发性能
-        conn.execute_batch("
+        conn.execute_batch(
+            "
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = NORMAL;
             PRAGMA cache_size = 10000;
             PRAGMA temp_store = MEMORY;
-        ")?;
-        
+        ",
+        )?;
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS proxy_rules (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,22 +110,24 @@ impl Database {
         let conn = self.conn()?;
         let mut stmt = conn.prepare_cached(
             "SELECT id, name, source, target, timeout_secs, enabled, created_at, updated_at 
-             FROM proxy_rules ORDER BY id"
+             FROM proxy_rules ORDER BY id",
         )?;
-        
-        let rules = stmt.query_map([], |row| {
-            Ok(ProxyRule {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                source: row.get(2)?,
-                target: row.get(3)?,
-                timeout_secs: row.get::<_, i64>(4)? as u64,
-                enabled: row.get::<_, i64>(5)? == 1,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
-        
+
+        let rules = stmt
+            .query_map([], |row| {
+                Ok(ProxyRule {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    source: row.get(2)?,
+                    target: row.get(3)?,
+                    timeout_secs: row.get::<_, i64>(4)? as u64,
+                    enabled: row.get::<_, i64>(5)? == 1,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(rules)
     }
 
@@ -131,26 +135,34 @@ impl Database {
         let conn = self.conn()?;
         let mut stmt = conn.prepare_cached(
             "SELECT id, name, source, target, timeout_secs, enabled, created_at, updated_at 
-             FROM proxy_rules WHERE enabled = 1 ORDER BY id"
+             FROM proxy_rules WHERE enabled = 1 ORDER BY id",
         )?;
-        
-        let rules = stmt.query_map([], |row| {
-            Ok(ProxyRule {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                source: row.get(2)?,
-                target: row.get(3)?,
-                timeout_secs: row.get::<_, i64>(4)? as u64,
-                enabled: row.get::<_, i64>(5)? == 1,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
-        
+
+        let rules = stmt
+            .query_map([], |row| {
+                Ok(ProxyRule {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    source: row.get(2)?,
+                    target: row.get(3)?,
+                    timeout_secs: row.get::<_, i64>(4)? as u64,
+                    enabled: row.get::<_, i64>(5)? == 1,
+                    created_at: row.get(6)?,
+                    updated_at: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
         Ok(rules)
     }
 
-    pub fn create_rule(&self, name: &str, source: &str, target: &str, timeout_secs: u64) -> Result<i64> {
+    pub fn create_rule(
+        &self,
+        name: &str,
+        source: &str,
+        target: &str,
+        timeout_secs: u64,
+    ) -> Result<i64> {
         let conn = self.conn()?;
         conn.execute(
             "INSERT INTO proxy_rules (name, source, target, timeout_secs) VALUES (?1, ?2, ?3, ?4)",
@@ -159,7 +171,15 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn update_rule(&self, id: i64, name: &str, source: &str, target: &str, timeout_secs: u64, enabled: bool) -> Result<()> {
+    pub fn update_rule(
+        &self,
+        id: i64,
+        name: &str,
+        source: &str,
+        target: &str,
+        timeout_secs: u64,
+        enabled: bool,
+    ) -> Result<()> {
         let conn = self.conn()?;
         conn.execute(
             "UPDATE proxy_rules SET name = ?1, source = ?2, target = ?3, timeout_secs = ?4, enabled = ?5, 
@@ -203,13 +223,15 @@ impl Database {
     pub fn get_all_configs(&self) -> Result<Vec<SystemConfig>> {
         let conn = self.conn()?;
         let mut stmt = conn.prepare_cached("SELECT id, key, value FROM system_config")?;
-        let configs = stmt.query_map([], |row| {
-            Ok(SystemConfig {
-                id: row.get(0)?,
-                key: row.get(1)?,
-                value: row.get(2)?,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
+        let configs = stmt
+            .query_map([], |row| {
+                Ok(SystemConfig {
+                    id: row.get(0)?,
+                    key: row.get(1)?,
+                    value: row.get(2)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(configs)
     }
 }

@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::env;
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::path::Path;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -57,10 +57,10 @@ impl Config {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
         let mut config: Config = serde_yaml::from_str(&content)?;
-        
+
         // 环境变量覆盖配置
         config.apply_env_overrides();
-        
+
         Ok(config)
     }
 

@@ -53,7 +53,7 @@ impl RollingFileWriter {
             for entry in entries.flatten() {
                 let file_name = entry.file_name();
                 let name = file_name.to_string_lossy();
-                
+
                 if name.starts_with(&date_str) && name.ends_with(".log") {
                     if let Some(index_str) = name
                         .strip_prefix(&format!("{}-", date_str))
@@ -78,7 +78,11 @@ impl RollingFileWriter {
 
 impl RollingFileWriterInner {
     fn get_log_filename(&self) -> String {
-        format!("{}-{}.log", self.current_date.format("%Y-%m-%d"), self.current_index)
+        format!(
+            "{}-{}.log",
+            self.current_date.format("%Y-%m-%d"),
+            self.current_index
+        )
     }
 
     fn open_current_file(&mut self) -> io::Result<()> {
@@ -120,7 +124,9 @@ impl RollingFileWriterInner {
 
 impl Clone for RollingFileWriter {
     fn clone(&self) -> Self {
-        Self { inner: Arc::clone(&self.inner) }
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
     }
 }
 
@@ -146,7 +152,9 @@ impl<'a> MakeWriter<'a> for RollingFileWriter {
     type Writer = RollingFileWriterGuard;
 
     fn make_writer(&'a self) -> Self::Writer {
-        RollingFileWriterGuard { inner: Arc::clone(&self.inner) }
+        RollingFileWriterGuard {
+            inner: Arc::clone(&self.inner),
+        }
     }
 }
 
