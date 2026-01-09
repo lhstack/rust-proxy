@@ -1,0 +1,40 @@
+[package]
+name = "proxy-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "fs", "sync", "parking_lot"] }
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace", "cors", "compression-gzip", "compression-br"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "http2", "tokio"] }
+http-body-util = "0.1"
+reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "deflate", "http2", "rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+chrono = "0.4"
+regex = "1"
+anyhow = "1"
+thiserror = "1"
+bytes = "1"
+futures = "0.3"
+rust-embed = { version = "8", features = ["mime-guess"] }
+mime_guess = "2"
+rusqlite = { version = "0.31", features = ["bundled"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.24"
+parking_lot = "0.12"
+dashmap = "6"
+arc-swap = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+opt-level = 3

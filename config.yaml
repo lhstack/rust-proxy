@@ -1,0 +1,31 @@
+# 代理服务配置文件
+# 所有配置项都可以通过环境变量覆盖，环境变量优先级高于配置文件
+# 环境变量格式: PROXY_<大写配置名>，如 PROXY_ADMIN_PORT, PROXY_USERNAME
+
+# 管理界面配置
+admin:
+  host: "0.0.0.0"
+  port: 8080  # 环境变量: PROXY_ADMIN_PORT
+
+# 代理服务配置
+proxy:
+  host: "0.0.0.0"
+  port: 3000  # 环境变量: PROXY_PROXY_PORT
+
+# 认证配置
+auth:
+  username: "admin"      # 环境变量: PROXY_USERNAME
+  password: "admin123"   # 环境变量: PROXY_PASSWORD
+
+# 数据库配置
+database:
+  path: "./proxy.db"     # 环境变量: PROXY_DB_PATH
+
+# 日志配置
+logging:
+  directory: "./logs"              # 环境变量: PROXY_LOG_DIR
+  max_size_bytes: 1073741824       # 1GB, 环境变量: PROXY_LOG_MAX_SIZE
+  retention_days: 30               # 环境变量: PROXY_LOG_RETENTION_DAYS
+
+# 默认超时时间(秒)
+default_timeout_secs: 30  # 环境变量: PROXY_DEFAULT_TIMEOUT

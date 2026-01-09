@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代理服务管理</title>
+    <style>
+        :root { --primary: #667eea; --primary-dark: #5a67d8; --success: #48bb78; --danger: #f56565; --gray-50: #f7fafc; --gray-100: #edf2f7; --gray-200: #e2e8f0; --gray-500: #718096; --gray-700: #4a5568; --gray-800: #2d3748; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-100); color: var(--gray-800); min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header-left h1 { font-size: 20px; font-weight: 600; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .status-badge { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 13px; }
+        .status-dot { width: 8px; height: 8px; background: #48bb78; border-radius: 50%; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .btn-logout:hover { background: rgba(255,255,255,0.3); }
+        .main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .stat-card h3 { font-size: 13px; color: var(--gray-500); font-weight: 500; margin-bottom: 8px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; color: var(--gray-800); }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 24px; overflow: hidden; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+        .card-header h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .card-body { padding: 20px; }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: var(--gray-200); color: var(--gray-700); }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 16px; text-align: left; }
+        th { background: var(--gray-50); font-weight: 600; font-size: 13px; color: var(--gray-500); text-transform: uppercase; }
+        td { border-bottom: 1px solid var(--gray-100); font-size: 14px; }
+        tr:hover td { background: var(--gray-50); }
+        .badge { display: inline-flex; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .badge-success { background: #c6f6d5; color: #276749; }
+        .badge-danger { background: #fed7d7; color: #c53030; }
+        .actions { display: flex; gap: 6px; }
+        code { background: var(--gray-100); padding: 4px 8px; border-radius: 4px; font-size: 13px; font-family: monospace; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+        .config-item { display: flex; flex-direction: column; gap: 8px; }
+        .config-item label { font-weight: 500; font-size: 14px; }
+        .config-item input { padding: 10px 14px; border: 2px solid var(--gray-200); border-radius: 8px; font-size: 14px; }
+        .config-item input:focus { outline: none; border-color: var(--primary); }
+        .config-item .hint { font-size: 12px; color: var(--gray-500); }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; border-radius: 16px; width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+        .modal-header h3 { font-size: 18px; font-weight: 600; }
+        .modal-close { width: 32px; height: 32px; border: none; background: var(--gray-100); border-radius: 8px; cursor: pointer; font-size: 18px; }
+        .modal-body { padding: 24px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 12px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px 14px; border: 2px solid var(--gray-200); border-radius: 8px; font-size: 14px; }
+        .form-group input:focus { outline: none; border-color: var(--primary); }
+        .form-group .hint { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .toast-container { position: fixed; top: 80px; right: 24px; z-index: 2000; }
+        .toast { background: var(--gray-800); color: white; padding: 14px 20px; border-radius: 10px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .toast-success { background: var(--success); }
+        .toast-error { background: var(--danger); }
+        .help-section { background: var(--gray-50); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .help-section h4 { font-size: 14px; margin-bottom: 12px; }
+        .help-section ul { list-style: none; font-size: 13px; color: var(--gray-700); }
+        .help-section li { padding: 6px 0; }
+        .empty { text-align: center; padding: 60px 20px; color: var(--gray-500); }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left"><span style="font-size:24px">🔀</span><h1>代理服务管理</h1></div>
+        <div class="header-right">
+            <div class="status-badge"><span class="status-dot"></span><span>代理服务运行中</span></div>
+            <button class="btn-logout" onclick="logout()">退出登录</button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="stats">
+            <div class="stat-card"><h3>代理端口</h3><div class="value" id="statPort">-</div></div>
+            <div class="stat-card"><h3>活跃规则</h3><div class="value" id="statRules">-</div></div>
+            <div class="stat-card"><h3>直接代理路径</h3><div class="value" id="statPath" style="font-size:16px">-</div></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>⚙️ 系统配置</h2><button class="btn btn-primary btn-sm" onclick="saveConfigs()">保存配置</button></div>
+            <div class="card-body">
+                <div class="config-grid">
+                    <div class="config-item"><label>直接代理路径前缀</label><input type="text" id="config_direct_proxy_path" placeholder="proxy"><span class="hint">访问格式: /{前缀}/https://target.com</span></div>
+                    <div class="config-item"><label>代理服务端口</label><input type="number" id="config_proxy_port" placeholder="3000"><span class="hint">修改后需重启服务生效</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>📋 代理规则</h2><button class="btn btn-primary" onclick="openAddModal()">+ 添加规则</button></div>
+            <div class="card-body" style="padding:0"><table><thead><tr><th>名称</th><th>源路径</th><th>目标地址</th><th>超时</th><th>状态</th><th>操作</th></tr></thead><tbody id="rulesList"></tbody></table></div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>📖 使用说明</h2></div>
+            <div class="card-body">
+                <div class="help-section"><h4>🔗 直接代理</h4><ul><li>访问格式: <code id="directProxyExample">http://localhost:3000/proxy/https://www.baidu.com</code></li></ul></div>
+                <div class="help-section"><h4>📝 路径匹配规则</h4><ul><li><code>{*path}</code> 匹配多个路径段</li><li><code>{id}</code> 匹配单个路径段</li></ul></div>
+            </div>
+        </div>
+    </main>
+    <div class="modal-overlay" id="ruleModal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="modalTitle">添加规则</h3><button class="modal-close" onclick="closeModal()">×</button></div>
+            <div class="modal-body">
+                <form id="ruleForm"><input type="hidden" id="ruleId">
+                    <div class="form-group"><label>规则名称</label><input type="text" id="ruleName" required placeholder="如：API代理"></div>
+                    <div class="form-group"><label>源路径</label><input type="text" id="ruleSource" required placeholder="如：/api/{*path}"><div class="hint">支持 {*path} 匹配多段，{name} 匹配单段</div></div>
+                    <div class="form-group"><label>目标地址</label><input type="text" id="ruleTarget" required placeholder="如：https://api.example.com/{*path}"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>超时时间(秒)</label><input type="number" id="ruleTimeout" value="30" min="1" max="300"></div>
+                        <div class="form-group" id="enabledGroup" style="display:none"><label>状态</label><select id="ruleEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="saveRule(event)">保存</button></div>
+        </div>
+    </div>
+    <div class="toast-container" id="toastContainer"></div>
+    <script>
+        const API='/api';
+        let token=localStorage.getItem('token');
+
+        // 带认证的 API 请求
+        async function api(path, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
+            };
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            
+            const res = await fetch(API + path, { ...options, headers });
+            
+            if (res.status === 401) {
+                // 未授权，跳转登录
+                localStorage.removeItem('token');
+                window.location.href = '/login';
+                return null;
+            }
+            
+            return res.json();
+        }
+
+        async function loadData() {
+            try {
+                await Promise.all([loadStatus(), loadConfigs(), loadRules()]);
+            } catch (e) {
+                console.error('Load data error:', e);
+                showToast('加载数据失败', 'error');
+            }
+        }
+
+        async function loadStatus() {
+            const d = await api('/status');
+            if (d?.success) {
+                document.getElementById('statPort').textContent = d.data.port;
+                document.getElementById('statRules').textContent = d.data.rules_count;
+                document.getElementById('statPath').innerHTML = `/<code>${d.data.direct_proxy_path}</code>/...`;
+                document.getElementById('directProxyExample').textContent = 
+                    `http://localhost:${d.data.port}/${d.data.direct_proxy_path}/https://www.baidu.com`;
+            }
+        }
+
+        async function loadConfigs() {
+            const d = await api('/configs');
+            if (d?.success) {
+                const c = {};
+                d.data.forEach(x => c[x.key] = x.value);
+                document.getElementById('config_direct_proxy_path').value = c.direct_proxy_path || 'proxy';
+                document.getElementById('config_proxy_port').value = c.proxy_port || '3000';
+            }
+        }
+
+        async function saveConfigs() {
+            await api('/configs/direct_proxy_path', {
+                method: 'PUT',
+                body: JSON.stringify({ value: document.getElementById('config_direct_proxy_path').value })
+            });
+            await api('/configs/proxy_port', {
+                method: 'PUT',
+                body: JSON.stringify({ value: document.getElementById('config_proxy_port').value })
+            });
+            showToast('配置已生效', 'success');
+            loadStatus();
+        }
+
+        async function loadRules() {
+            const d = await api('/rules');
+            if (d?.success) {
+                renderRules(d.data);
+            }
+        }
+
+        function renderRules(rules) {
+            const t = document.getElementById('rulesList');
+            if (!rules || !rules.length) {
+                t.innerHTML = '<tr><td colspan="6"><div class="empty"><div class="empty-icon">📭</div><p>暂无代理规则</p></div></td></tr>';
+                return;
+            }
+            t.innerHTML = rules.map(r => `
+                <tr>
+                    <td><strong>${esc(r.name)}</strong></td>
+                    <td><code>${esc(r.source)}</code></td>
+                    <td><code style="font-size:12px">${esc(r.target)}</code></td>
+                    <td>${r.timeout_secs}s</td>
+                    <td><span class="badge ${r.enabled ? 'badge-success' : 'badge-danger'}">${r.enabled ? '✓ 启用' : '✗ 禁用'}</span></td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn btn-sm ${r.enabled ? 'btn-secondary' : 'btn-success'}" onclick="toggleRule(${r.id},${!r.enabled})">${r.enabled ? '禁用' : '启用'}</button>
+                            <button class="btn btn-sm btn-primary" onclick="editRule(${r.id})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRule(${r.id})">删除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = '添加规则';
+            document.getElementById('ruleId').value = '';
+            document.getElementById('ruleName').value = '';
+            document.getElementById('ruleSource').value = '';
+            document.getElementById('ruleTarget').value = '';
+            document.getElementById('ruleTimeout').value = '30';
+            document.getElementById('enabledGroup').style.display = 'none';
+            document.getElementById('ruleModal').classList.add('active');
+        }
+
+        async function editRule(id) {
+            const d = await api('/rules');
+            const r = d?.data?.find(x => x.id === id);
+            if (!r) return;
+            document.getElementById('modalTitle').textContent = '编辑规则';
+            document.getElementById('ruleId').value = r.id;
+            document.getElementById('ruleName').value = r.name;
+            document.getElementById('ruleSource').value = r.source;
+            document.getElementById('ruleTarget').value = r.target;
+            document.getElementById('ruleTimeout').value = r.timeout_secs;
+            document.getElementById('ruleEnabled').value = String(r.enabled);
+            document.getElementById('enabledGroup').style.display = 'block';
+            document.getElementById('ruleModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('ruleModal').classList.remove('active');
+        }
+
+        async function saveRule(e) {
+            e?.preventDefault();
+            const id = document.getElementById('ruleId').value;
+            const p = {
+                name: document.getElementById('ruleName').value,
+                source: document.getElementById('ruleSource').value,
+                target: document.getElementById('ruleTarget').value,
+                timeout_secs: parseInt(document.getElementById('ruleTimeout').value)
+            };
+            if (id) {
+                p.enabled = document.getElementById('ruleEnabled').value === 'true';
+                await api(`/rules/${id}`, { method: 'PUT', body: JSON.stringify(p) });
+            } else {
+                await api('/rules', { method: 'POST', body: JSON.stringify(p) });
+            }
+            closeModal();
+            loadRules();
+            loadStatus();
+            showToast('保存成功', 'success');
+        }
+
+        async function toggleRule(id, e) {
+            await api(`/rules/${id}/toggle`, { method: 'POST', body: JSON.stringify({ enabled: e }) });
+            loadRules();
+            loadStatus();
+            showToast(e ? '已启用' : '已禁用', 'success');
+        }
+
+        async function deleteRule(id) {
+            if (!confirm('确定删除此规则？')) return;
+            await api(`/rules/${id}`, { method: 'DELETE' });
+            loadRules();
+            loadStatus();
+            showToast('删除成功', 'success');
+        }
+
+        async function logout() {
+            await api('/logout', { method: 'POST' });
+            localStorage.removeItem('token');
+            document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            window.location.href = '/login';
+        }
+
+        function showToast(m, t = 'success') {
+            const c = document.getElementById('toastContainer');
+            const e = document.createElement('div');
+            e.className = `toast toast-${t}`;
+            e.innerHTML = `<span>${t === 'success' ? '✓' : '✗'}</span> ${m}`;
+            c.appendChild(e);
+            setTimeout(() => e.remove(), 3000);
+        }
+
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        document.getElementById('ruleModal').addEventListener('click', e => {
+            if (e.target.classList.contains('modal-overlay')) closeModal();
+        });
+
+        // 初始化
+        loadData();
+    </script>
+</body>
+</html>
