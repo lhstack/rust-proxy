@@ -2,8 +2,7 @@ version: '3.8'
 
 services:
   proxy-server:
-    build: .
-    image: proxy-server:latest
+    image: lhstack/proxy-server:latest
     container_name: proxy-server
     restart: unless-stopped
     ports:

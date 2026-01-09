@@ -25,7 +25,7 @@ docker run -d \
   -v ./logs:/app/logs \
   -e PROXY_USERNAME=admin \
   -e PROXY_PASSWORD=your_password \
-  proxy-server:latest
+  lhstack/proxy-server:latest
 ```
 
 ## Ports / 端口
@@ -76,7 +76,7 @@ Configure rules in the admin UI / 在管理界面配置规则：
 version: '3.8'
 services:
   proxy-server:
-    image: proxy-server:latest
+    image: lhstack/proxy-server:latest
     ports:
       - "8080:8080"
       - "3000:3000"

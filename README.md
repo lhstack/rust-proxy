@@ -26,7 +26,7 @@ docker run -d \
   -v ./logs:/app/logs \
   -e PROXY_USERNAME=admin \
   -e PROXY_PASSWORD=your_password \
-  proxy-server:latest
+  lhstack/proxy-server:latest
 ```
 
 ### Docker Compose
