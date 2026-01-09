@@ -1,37 +1,23 @@
-version: '3.8'
-
 services:
   proxy-server:
     image: lhstack/proxy-server:latest
     container_name: proxy-server
-    restart: unless-stopped
+    logging:
+      options:
+        max-file: '1'
+        max-size: '2k'
+    user: 100:100
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: '256M'
     ports:
-      - "8080:8080"   # 管理界面
-      - "3000:3000"   # 代理服务
+    - '8080:8080' # mkdir -p data logs
+    - '3000:3000' # chown -R 100.100 data logs
     volumes:
-      - ./data:/app/data        # 数据库持久化
-      - ./logs:/app/logs        # 日志持久化
-      - ./config.yaml:/app/config.yaml:ro  # 配置文件(可选)
+      - ./data:/app/data
+      - ./logs:/app/logs
     environment:
-      - TZ=Asia/Shanghai
-      - PROXY_ADMIN_PORT=8080
-      - PROXY_PROXY_PORT=3000
       - PROXY_USERNAME=admin
       - PROXY_PASSWORD=admin123
-      - PROXY_DB_PATH=/app/data/proxy.db
-      - PROXY_LOG_DIR=/app/logs
-      # - PROXY_LOG_MAX_SIZE=1073741824
-      # - PROXY_LOG_RETENTION_DAYS=30
-      # - PROXY_DEFAULT_TIMEOUT=30
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-    networks:
-      - proxy-network
-
-networks:
-  proxy-network:
-    driver: bridge
