@@ -249,7 +249,7 @@ async fn forward_request_streaming(
     // 流式响应体
     let body_stream = response
         .bytes_stream()
-        .map(|result| result.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)));
+        .map(|result| result.map_err(std::io::Error::other));
 
     let body = Body::from_stream(body_stream);
 

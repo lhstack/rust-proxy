@@ -117,7 +117,7 @@ impl RollingFileWriterInner {
             self.current_size += written as u64;
             Ok(written)
         } else {
-            Err(io::Error::new(io::ErrorKind::Other, "No file opened"))
+            Err(io::Error::other("No file opened"))
         }
     }
 }
